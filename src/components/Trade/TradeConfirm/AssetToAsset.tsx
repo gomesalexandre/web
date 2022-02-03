@@ -6,6 +6,7 @@ import {
   Divider,
   Flex,
   FlexProps,
+  Spinner,
   Text,
   useColorModeValue
 } from '@chakra-ui/react'
@@ -39,6 +40,10 @@ export const AssetToAsset = ({
   const green = useColorModeValue('white', 'green.500')
 
   const renderIcon = () => {
+    if (status === chainAdapters.TxStatus.Pending) {
+      return <Spinner color='gray.500' />
+    }
+
     return status === chainAdapters.TxStatus.Confirmed ? (
       <Circle bg={green} w='100%' h='100%'>
         <CheckIcon />
@@ -79,7 +84,11 @@ export const AssetToAsset = ({
           size={boxSize}
           bg='blue.500'
           p='1px'
-          background={`linear-gradient(to right, ${sellAssetColor}, ${buyAssetColor})`}
+          background={
+            status === chainAdapters.TxStatus.Confirmed
+              ? `linear-gradient(to right, ${sellAssetColor}, ${buyAssetColor})`
+              : 'gray.700'
+          }
         >
           {renderIcon()}
         </Circle>

@@ -1,6 +1,7 @@
 import { Box, Button, Divider, Link, Stack, useToast } from '@chakra-ui/react'
 import { caip19 } from '@shapeshiftoss/caip'
 import { ChainTypes, ContractTypes, NetworkTypes, SwapperType } from '@shapeshiftoss/types'
+import { chainAdapters } from '@shapeshiftoss/types'
 import { useState } from 'react'
 import { useFormContext } from 'react-hook-form'
 import { useTranslate } from 'react-polyglot'
@@ -31,6 +32,7 @@ type ZrxError = Error & { message: string }
 
 export const TradeConfirm = ({ history }: RouterProps) => {
   const [txid, setTxid] = useState('')
+  const [isError, setIsError] = useState(false)
   const {
     getValues,
     handleSubmit,
@@ -54,8 +56,6 @@ export const TradeConfirm = ({ history }: RouterProps) => {
   const extra = { contractType, tokenId }
   const caip = caip19.toCAIP19({ chain, network, ...(tokenId ? extra : undefined) })
 
-  const status = useAppSelector(state => selectLastTxStatusByAssetId(state, caip))
-
   // Parametrized errors cannot simply be matched with === since their param(s) might vary
   const PARAMETRIZED_ERRORS_TO_TRADE_ERRORS = {
     'ZrxExecuteQuote - signAndBroadcastTransaction error': TRADE_ERRORS.TRANSACTION_REJECTED,
@@ -78,6 +78,10 @@ export const TradeConfirm = ({ history }: RouterProps) => {
   }
 
   const onSubmit = async () => {
+    // Reset tx ID and error in case user rejected but re-submits tx
+    setTxid('')
+    setIsError(false)
+
     if (!wallet) return
     try {
       const result = await executeQuote({ wallet })
@@ -88,6 +92,7 @@ export const TradeConfirm = ({ history }: RouterProps) => {
     } catch (err) {
       console.error(`TradeConfirm:onSubmit - ${err}`)
       let errorMessage
+      setIsError(true)
       switch ((err as ZrxError).message) {
         case 'ZrxSwapper:ZrxExecuteQuote Cannot execute a failed quote': {
           errorMessage = TRADE_ERRORS.FAILED_QUOTE_EXECUTED
@@ -131,6 +136,17 @@ export const TradeConfirm = ({ history }: RouterProps) => {
     history.push('/trade/input')
   }
 
+  const getStatus = () => {
+    if (isError) {
+      return chainAdapters.TxStatus.Failed
+    }
+    if (!txid) {
+      return chainAdapters.TxStatus.Pending
+    }
+
+    return chainAdapters.TxStatus.Confirmed
+  }
+
   return (
     <SlideTransition>
       <Box as='form' onSubmit={handleSubmit(onSubmit)}>
@@ -141,7 +157,7 @@ export const TradeConfirm = ({ history }: RouterProps) => {
                 <Text translation={txid ? 'trade.complete' : 'trade.confirmDetails'} />
               </Card.Heading>
             </WithBackButton>
-            <AssetToAsset buyAsset={buyAsset} sellAsset={sellAsset} mt={6} status={status} />
+            <AssetToAsset buyAsset={buyAsset} sellAsset={sellAsset} mt={6} status={getStatus()} />
           </Card.Header>
           <Divider />
           <Card.Body pb={0} px={0}>
